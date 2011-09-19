@@ -1,7 +1,9 @@
 ﻿namespace Nancy.Routing
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
+    using Nancy.Helpers;
 
     using RouteCandidate = System.Tuple<string, int, RouteDescription, IRoutePatternMatchResult>;
     using ResolveResult = System.Tuple<Route, DynamicDictionary, System.Func<NancyContext, Response>, System.Action<NancyContext>>;
@@ -143,12 +145,15 @@
 
         private IEnumerable<RouteCandidate> GetRoutesThatMatchRequestedPath(IRouteCache routeCache, NancyContext context)
         {
+            var requestedPath = HttpUtility.UrlDecode(context.Request.Path);//.ToLower(System.Threading.Thread.CurrentThread.CurrentCulture);
+            var requestedPathSegments = requestedPath.Split(new[] { "/" }, StringSplitOptions.RemoveEmptyEntries);
+
             return from cacheEntry in routeCache
                    from cacheEntryRoutes in cacheEntry.Value
                    let routeIndex = cacheEntryRoutes.Item1
                    let routeDescription = cacheEntryRoutes.Item2
                    where ((routeDescription.Condition == null) || (routeDescription.Condition(context)))
-                   let result = this.routePatternMatcher.Match(context.Request.Path, routeDescription.Path)
+                   let result = this.routePatternMatcher.Match(requestedPathSegments, routeDescription.Path)
                    where result.IsMatch
                    select new RouteCandidate(cacheEntry.Key, routeIndex, routeDescription, result);
         }

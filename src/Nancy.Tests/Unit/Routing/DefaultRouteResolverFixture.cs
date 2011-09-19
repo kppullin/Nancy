@@ -34,10 +34,11 @@
             A.CallTo(() => this.catalog.GetModuleByKey(A<string>.Ignored, A<NancyContext>.Ignored)).ReturnsLazily(() => this.expectedModule);
 
             this.matcher = A.Fake<IRoutePatternMatcher>();
-            A.CallTo(() => this.matcher.Match(A<string>.Ignored, A<string>.Ignored)).ReturnsLazily(x =>
+            A.CallTo(() => this.matcher.Match(A<string[]>.Ignored, A<string>.Ignored)).ReturnsLazily(x =>
                 new FakeRoutePatternMatchResult(c =>
                 {
-                    c.IsMatch(((string)x.Arguments[0]).Equals(((string)x.Arguments[1])));
+                    string path = "/" + string.Join("/", ((string[])x.Arguments[0]));
+                    c.IsMatch(path.Equals((string)x.Arguments[1]));
                     c.AddParameter("foo", "bar");
                 }));
 
@@ -87,7 +88,7 @@
         }
 
         [Fact]
-        public void Should_return_first_route_with_when_multiple_matches_are_available_and_contains_same_number_of_parameter_captures()
+        public void Should_return_first_route_when_multiple_matches_are_available_and_contains_same_number_of_parameter_captures()
         {
             // Given
             var request = new FakeRequest("get", "/foo/bar");
@@ -104,7 +105,7 @@
                 x.AddGetRoute("/foo/{bar}", this.expectedAction);
             });
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("bar", "fake value")));
 
             // When
@@ -126,10 +127,10 @@
                 x.AddGetRoute("/foo/{bar}", "module-key-one-parameter");
             });
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("bar", "fake value")));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}/{foo}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}/{foo}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true)
                     .AddParameter("foo", "fake value")
                     .AddParameter("bar", "fake value 2")));
@@ -157,13 +158,13 @@
                 x.AddGetRoute("/{foo}/{bar}", "module-key-two-parameters");
             });
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/bar")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/bar")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true)));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("bar", "fake value")));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true)
                     .AddParameter("foo", "fake value")
                     .AddParameter("bar", "fake value")));
@@ -192,15 +193,15 @@
 
             this.expectedModule = new FakeNancyModule(x => x.AddGetRoute("/foo/bar/{two}", this.expectedAction));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/bar/{two}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/bar/{two}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("two", "fake values")));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}/{two}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}/{two}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true)
                     .AddParameter("bar", "fake values")
                     .AddParameter("two", "fake values")));
 
-            A.CallTo(() => this.matcher.Match(request.Path, "/foo/{bar}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/foo/{bar}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("bar", "fake value")));
 
             // When
@@ -221,9 +222,9 @@
                 x.AddGetRoute("/", "module-key-first");
                 x.AddGetRoute("/{name}", "module-key-second");
             });
-            A.CallTo(() => this.matcher.Match(request.Path, "/")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true)));
-            A.CallTo(() => this.matcher.Match(request.Path, "/{name}")).Returns(
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), "/{name}")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(true).AddParameter("name", "fake values")));
 
             // When
@@ -249,7 +250,7 @@
             this.resolver.Resolve(context, routeCache);
 
             // Then
-            A.CallTo(() => this.matcher.Match(request.Path, A<string>.Ignored)).MustHaveHappened();
+            A.CallTo(() => this.matcher.Match(request.Path.SplitUrl(), A<string>.Ignored)).MustHaveHappened();
         }
 
         [Fact]
@@ -270,9 +271,9 @@
             this.resolver.Resolve(context, routeCache);
 
             // Then
-            A.CallTo(() => this.matcher.Match(A<string>.Ignored, "/foo/bar")).MustHaveHappened();
-            A.CallTo(() => this.matcher.Match(A<string>.Ignored, "/bar/foo")).MustHaveHappened();
-            A.CallTo(() => this.matcher.Match(A<string>.Ignored, "/foobar")).MustHaveHappened();
+            A.CallTo(() => this.matcher.Match(A<string[]>.Ignored, "/foo/bar")).MustHaveHappened();
+            A.CallTo(() => this.matcher.Match(A<string[]>.Ignored, "/bar/foo")).MustHaveHappened();
+            A.CallTo(() => this.matcher.Match(A<string[]>.Ignored, "/foobar")).MustHaveHappened();
         }
 
         [Fact]
@@ -421,7 +422,7 @@
                 x.AddGetRoute("/bar/foo");
             });
 
-            A.CallTo(() => this.matcher.Match("/foo/bar", "/bar/foo")).Returns(
+            A.CallTo(() => this.matcher.Match("/foo/bar".SplitUrl(), "/bar/foo")).Returns(
                 new FakeRoutePatternMatchResult(x => x.IsMatch(false)));
 
             // When
